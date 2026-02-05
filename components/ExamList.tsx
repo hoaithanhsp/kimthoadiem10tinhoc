@@ -11,7 +11,7 @@ interface Exam {
 
 // Generate 20 exams từ danh sách file
 const EXAMS: Exam[] = Array.from({ length: 20 }, (_, i) => ({
-    id: `exam-${i + 1}`,
+    id: `exam-${String(i + 1).padStart(2, '0')}`, // exam-01, exam-02, ...
     name: `Đề ${String(i + 1).padStart(2, '0')}`,
     fileName: `05${String(i + 1).padStart(2, '0')}.pdf`,
     questionCount: 40,
@@ -36,8 +36,8 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, index, onClick }) => {
             <div className="flex items-start gap-4">
                 {/* Icon */}
                 <div className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center transition-colors duration-300 ${exam.completed
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-brand-100 text-brand-600 group-hover:bg-brand-500 group-hover:text-white'
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-brand-100 text-brand-600 group-hover:bg-brand-500 group-hover:text-white'
                     }`}>
                     {exam.completed ? (
                         <CheckCircle size={28} />
