@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { TopicCard } from './components/TopicCard';
 import { Quiz } from './components/Quiz';
@@ -7,6 +7,8 @@ import { ResultView } from './components/ResultView';
 import { Stats } from './components/Stats';
 import { LoginScreen } from './components/LoginScreen';
 import { AuthorSection } from './components/AuthorSection';
+import { ExamList } from './components/ExamList';
+import { ExamViewer } from './components/ExamViewer';
 import { Topic, Question, UserAnswer, ExamResult } from './types';
 import { SAMPLE_QUESTIONS, getRandomExam } from './constants';
 import { saveExamResult } from './services/storageService';
@@ -26,29 +28,32 @@ const HomePage: React.FC<{ onStartQuiz: (t: Topic | null) => void }> = ({ onStar
             Hệ thống chấm điểm tự động và giải thích chi tiết bằng AI.
           </p>
           <button
-            onClick={() => onStartQuiz(null)} // Mixed quiz
-            className="bg-white text-brand-600 font-bold py-3 px-8 rounded-full shadow hover:bg-gray-100 hover:scale-105 transition transform"
+            onClick={() => onStartQuiz(null)}
+            className="bg-white text-brand-600 font-bold py-3 px-8 rounded-full shadow hover:bg-gray-100 hover:scale-105 transition-all duration-300 transform"
           >
             Thi thử tổng hợp
           </button>
         </div>
-        {/* Decorative circle */}
         <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white opacity-10 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Author Section */}
       <AuthorSection />
 
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-gray-800 border-l-4 border-brand-500 pl-3">Chủ đề ôn tập</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {topics.map((t) => (
-            <TopicCard
+          {topics.map((t, index) => (
+            <div
               key={t}
-              topic={t}
-              questionCount={SAMPLE_QUESTIONS.filter(q => q.topic === t).length + 20}
-              onStart={() => onStartQuiz(t)}
-            />
+              className="transform transition-all duration-300 hover:scale-[1.02]"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <TopicCard
+                topic={t}
+                questionCount={SAMPLE_QUESTIONS.filter(q => q.topic === t).length + 20}
+                onStart={() => onStartQuiz(t)}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -56,16 +61,51 @@ const HomePage: React.FC<{ onStartQuiz: (t: Topic | null) => void }> = ({ onStar
   );
 };
 
+// Practice Page với ExamList
+const PracticePage: React.FC = () => {
+  const navigate = useNavigate();
+  const [selectedExam, setSelectedExam] = useState<{ id: string; name: string; fileName: string } | null>(null);
+
+  const handleSelectExam = (exam: { id: string; name: string; fileName: string }) => {
+    setSelectedExam(exam);
+  };
+
+  const handleBack = () => {
+    if (selectedExam) {
+      setSelectedExam(null);
+    } else {
+      navigate('/');
+    }
+  };
+
+  if (selectedExam) {
+    return (
+      <ExamViewer
+        examId={selectedExam.id}
+        examName={selectedExam.name}
+        fileName={selectedExam.fileName}
+        onBack={handleBack}
+      />
+    );
+  }
+
+  return (
+    <ExamList
+      onSelectExam={handleSelectExam}
+      onBack={handleBack}
+    />
+  );
+};
+
 const QuizContainer: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeQuiz, setActiveQuiz] = useState<Question[] | null>(null);
   const [result, setResult] = useState<ExamResult | null>(null);
 
   const startQuiz = (topic: Topic | null) => {
-    // Generate questions. If topic is null, mix them.
-    let questions = getRandomExam(20); // 20 questions for demo
+    let questions = getRandomExam(20);
     if (topic) {
-      // In real app, filter properly. Here we simulate preference or mix if not enough.
       const topicQs = SAMPLE_QUESTIONS.filter(q => q.topic === topic);
       if (topicQs.length > 0) {
         questions = getRandomExam(10).map((q, i) => i < topicQs.length ? topicQs[i] : q);
@@ -79,11 +119,6 @@ const QuizContainer: React.FC = () => {
     if (!activeQuiz) return;
 
     let correctCount = 0;
-
-    // Calculate Score Logic (Simplified for Demo)
-    // In real exam: each sub-question in TF group counts 0.25 points. MC counts 0.25.
-    // Let's normalize to scale 10.
-
     let totalPointsPossible = 0;
     let earnedPoints = 0;
 
@@ -94,11 +129,9 @@ const QuizContainer: React.FC = () => {
         totalPointsPossible += 1;
         if (userAns && userAns.answer === q.correctAnswer) {
           earnedPoints += 1;
-          correctCount++; // Treat whole question as 1 unit for simple count
+          correctCount++;
         }
       } else if (q.type === 'true_false_group' && q.subQuestions) {
-        // Each sub question is 0.25 weight relative to a full MC question in this simple logic
-        // Or we treat the group as 1 point total, each sub is 0.25
         totalPointsPossible += 1;
         let subCorrect = 0;
         const ansObj = (userAns?.answer as Record<string, boolean>) || {};
@@ -119,7 +152,7 @@ const QuizContainer: React.FC = () => {
       date: new Date().toISOString(),
       score: finalScore,
       totalQuestions: activeQuiz.length,
-      correctCount: correctCount, // Approximate "full correct" questions
+      correctCount: correctCount,
       timeSpentSeconds: timeSpent,
       answers: answers,
       questions: activeQuiz
@@ -141,7 +174,7 @@ const QuizContainer: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<HomePage onStartQuiz={startQuiz} />} />
-      <Route path="/practice" element={<HomePage onStartQuiz={startQuiz} />} />
+      <Route path="/practice" element={<PracticePage />} />
       <Route path="/stats" element={<Stats />} />
     </Routes>
   );
@@ -151,7 +184,6 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Kiểm tra trạng thái đăng nhập từ localStorage
     const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
     setIsLoggedIn(loggedIn);
   }, []);
@@ -160,7 +192,6 @@ const App: React.FC = () => {
     setIsLoggedIn(true);
   };
 
-  // Hiển thị màn hình đăng nhập nếu chưa đăng nhập
   if (!isLoggedIn) {
     return <LoginScreen onLogin={handleLogin} />;
   }
